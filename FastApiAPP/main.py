@@ -14,7 +14,7 @@ app = FastAPI(title="Green Tensor Image Generator")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost", "http://localhost:80"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"], 
@@ -67,7 +67,10 @@ async def generate_images(params: LensParameters):
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": "attachment; filename=images.zip"}
+            headers={
+                "Content-Disposition": "attachment; filename=images.zip",
+                "Content-Length": str(zip_buffer.getbuffer().nbytes)
+            }
         )
 
     except Exception as e:
