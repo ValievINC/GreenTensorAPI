@@ -1,117 +1,68 @@
 import math
+from typing import List, Optional, Union, Tuple
 
 
 class Lens:
     """
     Класс для представления линзы
 
-    Атрибуты
-    --------
-    Radius : float
-        Радиус линзы (коэффициент умножения pi)
-    Layers_count : int
-        Число слоев линзы (последний слой - воздух)
-    Accuracy : int
-        Точность расчетов
-    Norm_radii : list[float]
-        Нормированные радиусы слоев
-    Dielectric_constants : list[float]
-        Диэлектрическая проницаемость материала слоев
-    Magnetic_permeabilities : list[float]
-        Магнитная проницаемость материала слоев
+    Параметры:
+    ----------
+    k0 : float, optional
+        Волновое число (по умолчанию 4π)
+    toch : int, optional
+        Количество учитываемых членов ряда (по умолчанию 20)
+    n : int, optional
+        Число слоев (последний слой - воздух, по умолчанию 4)
+    phi : float, optional
+        Азимутальный угол в радианах (по умолчанию π/2)
+    a : List[float], optional
+        Радиусы слоев сферы
+    eps : List[complex], optional
+        Комплексные диэлектрические проницаемости слоев
+    miy : List[complex], optional
+        Комплексные магнитные проницаемости слоев
+    k1 : float, optional
+        Альтернативное волновое число для некоторых расчетов
     """
     def __init__(
         self,
-        radiusRatio: int,
-        layers_count: int,
-        norm_radii: list[float],
-        dielectric_constants: list[float],
-        magnetic_permeabilities: list[float]
+        k0: float = 4 * math.pi,
+        toch: int = 20,
+        n: int = 4,
+        phi: float = math.pi / 2,
+        a: Optional[List[float]] = None,
+        eps: Optional[List[complex]] = None,
+        miy: Optional[List[complex]] = None,
+        k1: Optional[float] = None
     ):
-        """
-        Инициализация линзы с валидацией параметров
-
-        :param radius: Радиус линзы (коэффициент умножения pi)
-        :param layers_count: Число слоев линзы (последний слой - воздух)
-        :param norm_radii: Нормированные радиусы слоев
-        :param dielectric_constants: Диэлектрическая проницаемость материала слоев
-        :param magnetic_permeabilities: Магнитная проницаемость материала слоев
-        """
-        self._validate_inputs(
-            radiusRatio,
-            layers_count,
-            norm_radii,
-            dielectric_constants,
-            magnetic_permeabilities
-        )
+        # Основные параметры
+        self.k0 = k0
+        self.k1 = k1 if k1 is not None else k0
+        self.toch = toch
+        self.n = n
+        self.phi = phi
         
-        self.Radius: float = radiusRatio * math.pi
-        self.Layers_count: int = layers_count
-        self.Accuracy: int = math.ceil(self.Radius*2)
-        self.Norm_radii: list[float] = norm_radii
-        self.Dielectric_constants: list[float] = dielectric_constants
-        self.Magnetic_permeabilities: list[float] = magnetic_permeabilities
+        # Параметры материалов
+        self.a = a if a is not None else [0.53, 0.75, 0.93, 1.0]
+        self.eps = eps if eps is not None else [1.86, 1.57, 1.28, 1.0]
+        self.miy = miy if miy is not None else [1.0, 1.0, 1.0, 1.0]
+        
+        # Валидация входных параметров
+        self._validate_inputs()
 
-    @staticmethod
-    def _validate_inputs(
-        radius: int,
-        layers_count: int,
-        norm_radii: list[float],
-        dielectric_constants: list[float],
-        magnetic_permeabilities: list[float]
-    ) -> None:
+    def _validate_inputs(self) -> None:
         """Валидация всех входных параметров"""
         
         # Проверка типов данных
-        if not isinstance(radius, int):
-            raise TypeError("radius должен быть целым числом")
-            
-        if not isinstance(layers_count, int):
-            raise TypeError("layers_count должен быть целым числом")
-            
-        if not all(isinstance(x, (float, int)) for x in norm_radii):
-            raise TypeError("norm_radii должен содержать только числа")
-            
-        if not all(isinstance(x, (float, int)) for x in dielectric_constants):
-            raise TypeError("dielectric_constants должен содержать только числа")
-            
-        if not all(isinstance(x, (float, int)) for x in magnetic_permeabilities):
-            raise TypeError("magnetic_permeabilities должен содержать только числа")
-
-        if radius <= 0:
-            raise ValueError("radius должен быть положительным числом")
-            
-        if layers_count <= 0:
-            raise ValueError("layers_count должен быть положительным числом")
-            
-        if len(norm_radii) != layers_count:
-            raise ValueError("Количество norm_radii должно соответствовать layers_count")
-            
-        if len(dielectric_constants) != layers_count:
-            raise ValueError("Количество dielectric_constants должно соответствовать layers_count")
-            
-        if len(magnetic_permeabilities) != layers_count:
-            raise ValueError("Количество magnetic_permeabilities должно соответствовать layers_count")
-
-        if not all(0 < r <= 1 for r in norm_radii):
-            raise ValueError("Нормированные радиусы должны быть в диапазоне (0, 1]")
-            
-        if any(e <= 0 for e in dielectric_constants):
-            raise ValueError("Диэлектрическая проницаемость должна быть положительной")
-            
-        if any(m <= 0 for m in magnetic_permeabilities):
-            raise ValueError("Магнитная проницаемость должна быть положительной")
-
-        if norm_radii[-1] != 1:
-            raise ValueError("Последний слой (воздух) должен иметь радиус 1")
+        if len(self.a) != self.n:
+            raise ValueError(f"Длина списка радиусов a ({len(self.a)}) должна равняться n ({self.n})")
+        if len(self.eps) != self.n:
+            raise ValueError(f"Длина списка eps ({len(self.eps)}) должна равняться n ({self.n})")
+        if len(self.miy) != self.n:
+            raise ValueError(f"Длина списка miy ({len(self.miy)}) должна равняться n ({self.n})")
         
-    def __str__(self) -> str:
-        return (
-            f"Lens Parameters:\n"
-            f"Radius: {self.Radius:.2f}\n"
-            f"Accuracy: {self.Accuracy}\n"
-            f"Layers: {self.Layers_count}\n"
-            f"Norm Radii: {self.Norm_radii}\n"
-            f"Dielectric Constants: {self.Dielectric_constants}\n"
-            f"Magnetic Permeabilities: {self.Magnetic_permeabilities}"
-        )
+        if self.toch <= 0:
+            raise ValueError("Количество членов ряда должно быть положительным")
+        if self.k0 <= 0:
+            raise ValueError("Волновое число должно быть положительным")
