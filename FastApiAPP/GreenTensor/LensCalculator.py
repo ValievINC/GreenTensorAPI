@@ -1,4 +1,4 @@
-from Lens import Lens
+from .Lens import Lens
 import cmath
 import scipy
 import math

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.ticker as ticker
 from typing import Optional, Tuple, List, Union
 from scipy.stats import pearsonr
-from LensCalculator import LensCalculator
+from .LensCalculator import LensCalculator
 
 class LensPlotCreator:
     """Класс для создания графиков для анализа линз"""
