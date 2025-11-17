@@ -1,9 +1,8 @@
-from .Lens import Lens
+from Lens import Lens
 import cmath
 import scipy
 import math
 import numpy as np
-from typing import List
 
 class LensCalculator:
     def __init__(self, lens: Lens):
