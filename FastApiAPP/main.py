@@ -15,7 +15,7 @@ app = FastAPI(title="Green Tensor Image Generator")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost", "http://localhost:80"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"], 
@@ -74,7 +74,7 @@ async def calculate_lens_properties(request: PlotRequest):
         calculator.run_calculation()
         
         angles_deg = [angle * 180 / np.pi for angle in calculator.teta]
-        
+
         return CalculationResult(
             angles_rad=calculator.teta.tolist(),
             angles_deg=angles_deg,
@@ -131,7 +131,7 @@ async def generate_analysis(request: PlotRequest):
         lens = create_lens_from_config(request.lens_config)
         calculator = LensCalculator(lens)
         calculator.run_calculation()
-        
+
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             

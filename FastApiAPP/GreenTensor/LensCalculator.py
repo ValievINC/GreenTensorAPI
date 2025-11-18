@@ -1,4 +1,4 @@
-from Lens import Lens
+from .Lens import Lens
 import cmath
 import scipy
 import math
@@ -322,7 +322,13 @@ class LensCalculator:
         self.DN_NORM_circle_k0a_op = self.Pab1 / self.lens.k0
         self.DN_NORM_circle_k0a_kp = self.Pab2 / self.lens.k0
         
-        # Нормированные E dB
+        # Поля
+        self.E_teta = np.abs(self.E_teta).astype(float)
+        self.E_phi = np.abs(self.E_phi).astype(float)
+        self.Pab1 = np.abs(self.Pab1).astype(float)
+        self.Pab2 = np.abs(self.Pab2).astype(float)
+
+        # Нормированные E dB (теперь уже от float)
         E_teta_max = np.max(self.E_teta[0])
         E_phi_max = np.max(self.E_phi[0])
         Pab1_max = np.max(self.Pab1)
@@ -332,6 +338,13 @@ class LensCalculator:
         self.DN_NORM_lin_dB_phi = 20 * np.log10(self.E_phi[0] / E_phi_max)
         self.DN_NORM_circle_dB_op = 20 * np.log10(self.Pab1 / Pab1_max)
         self.DN_NORM_circle_dB_kp = 20 * np.log10(self.Pab2 / Pab2_max)
+
+        # На всякий случай тоже приводим dB к float
+        self.DN_NORM_lin_dB_teta = np.asarray(self.DN_NORM_lin_dB_teta, dtype=float)
+        self.DN_NORM_lin_dB_phi = np.asarray(self.DN_NORM_lin_dB_phi, dtype=float)
+        self.DN_NORM_circle_dB_op = np.asarray(self.DN_NORM_circle_dB_op, dtype=float)
+        self.DN_NORM_circle_dB_kp = np.asarray(self.DN_NORM_circle_dB_kp, dtype=float)
+
     
     def run_calculation(self):
         """Выполнение полного расчета"""
