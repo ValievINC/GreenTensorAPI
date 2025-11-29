@@ -44,9 +44,9 @@ class Lens:
         self.phi = phi
         
         # Параметры материалов
-        self.a = a if a is not None else [0.53, 0.75, 0.93, 1.0]
-        self.eps = eps if eps is not None else [1.86, 1.57, 1.28, 1.0]
-        self.miy = miy if miy is not None else [1.0, 1.0, 1.0, 1.0]
+        self.a = a 
+        self.eps = eps 
+        self.miy = miy 
         
         # Валидация входных параметров
         self._validate_inputs()
