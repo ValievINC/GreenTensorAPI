@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from GreenTensor.Lens import Lens
@@ -7,14 +7,12 @@ from GreenTensor.LensPlotCreator import LensPlotCreator
 import matplotlib.pyplot as plt
 from io import BytesIO, StringIO
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 import zipfile
 import numpy as np
 import pandas as pd
 import csv
-from fastapi import UploadFile, File, Form
 import json
-from io import StringIO
 
 
 app = FastAPI(title="Green Tensor Image Generator")
@@ -29,19 +27,27 @@ app.add_middleware(
 
 
 class LensConfiguration(BaseModel):
-    wave_number: float = Field(..., description="Волновое число")
-    series_terms: int = Field(..., description="Количество членов ряда")
-    layers_count: int = Field(..., description="Количество слоев")
-    azimuth_angle: float = Field(..., description="Азимутальный угол")
-    radii: List[float] = Field(..., description="Радиусы слоев")
-    dielectric_constants: List[float] = Field(..., description="Диэлектрические постоянные")
-    magnetic_permeabilities: List[float] = Field(..., description="Магнитные проницаемости")
-    alternative_wave_number: Optional[float] = Field(None, description="Альтернативное волновое число")
+    wave_number: float
+    series_terms: int
+    layers_count: int
+    azimuth_angle: float
+    radii: List[float]
+    dielectric_constants: List[float]
+    magnetic_permeabilities: List[float]
+    alternative_wave_number: Optional[float] = None
 
 
 class PlotRequest(BaseModel):
     lens_config: LensConfiguration
     normalize: bool = Field(True, description="Нормализовать результаты")
+    plot_fields: Optional[List[str]] = Field(
+        default=["lin_teta"],
+        description="Какие поля рисовать: lin_teta, lin_phi, circle_op, circle_kp"
+    )
+    scattering_mode: str = Field(
+        "horn",
+        description="Режим расчёта: 'horn' или 'huygens'"
+    )
 
 
 class CalculationResult(BaseModel):
@@ -73,7 +79,7 @@ def create_lens_from_config(config: LensConfiguration) -> Lens:
 async def calculate_lens_properties(request: PlotRequest):
     try:
         lens = create_lens_from_config(request.lens_config)
-        calculator = LensCalculator(lens)
+        calculator = LensCalculator(lens, scattering_mode=request.scattering_mode)
         calculator.run_calculation()
 
         angles_deg = [angle * 180 / np.pi for angle in calculator.teta]
@@ -88,17 +94,21 @@ async def calculate_lens_properties(request: PlotRequest):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Ошибка расчета: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Ошибка расчёта: {str(e)}")
 
 
 @app.post("/generate-plot/")
 async def generate_plot(request: PlotRequest):
     try:
         lens = create_lens_from_config(request.lens_config)
-        calculator = LensCalculator(lens)
+        calculator = LensCalculator(lens, scattering_mode=request.scattering_mode)
         calculator.run_calculation()
 
-        plot_creator = LensPlotCreator(calculator)
+        plot_creator = LensPlotCreator(
+            calculator,
+            plot_fields=request.plot_fields
+        )
+
         fig = plot_creator.plot_single_polar()
 
         buffer = BytesIO()
@@ -120,13 +130,17 @@ async def generate_plot(request: PlotRequest):
 async def generate_analysis(request: PlotRequest):
     try:
         lens = create_lens_from_config(request.lens_config)
-        calculator = LensCalculator(lens)
+        calculator = LensCalculator(lens, scattering_mode=request.scattering_mode)
         calculator.run_calculation()
 
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
 
-            plot_creator = LensPlotCreator(calculator)
+            plot_creator = LensPlotCreator(
+                calculator,
+                plot_fields=request.plot_fields
+            )
+
             fig = plot_creator.plot_single_polar()
 
             img_buffer = BytesIO()
@@ -175,26 +189,24 @@ async def compare_csv(
     request: str = Form(...)
 ):
     try:
-        # Парсим request из FormData
         request_data = json.loads(request)
         request_model = PlotRequest(**request_data)
 
-        # Читаем CSV
         csv_content = await file.read()
         df = pd.read_csv(StringIO(csv_content.decode('utf-8')))
 
-        # Берём последнюю колонку (значения dB)
         reference_array = df.iloc[1:, -1].to_numpy().astype(float)
 
-        # Выполняем расчёт
         lens = create_lens_from_config(request_model.lens_config)
-        calculator = LensCalculator(lens)
+        calculator = LensCalculator(lens, scattering_mode=request.scattering_mode)
         calculator.run_calculation()
 
-        # Сравнение
-        plotter = LensPlotCreator(calculator)
-        plotter.setup_comparison(reference_array)
+        plotter = LensPlotCreator(
+            calculator,
+            plot_fields=request_model.plot_fields
+        )
 
+        plotter.setup_comparison(reference_array)
         fig = plotter.plot_comparison_polar()
 
         out = BytesIO()
@@ -216,7 +228,7 @@ async def compare_csv(
 async def root():
     return {
         "message": "GreenTensor Lens Analysis API",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "endpoints": {
             "calculate": "POST /calculate",
             "generate_plot": "POST /generate-plot",

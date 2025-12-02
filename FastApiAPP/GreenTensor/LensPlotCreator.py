@@ -9,7 +9,7 @@ from .LensCalculator import LensCalculator
 class LensPlotCreator:
     """Класс для создания графиков для анализа линз"""
     
-    def __init__(self, calculator: LensCalculator):
+    def __init__(self, calculator: LensCalculator, plot_fields=None):
         """
         Инициализация класса для построения графиков.
         
@@ -19,7 +19,29 @@ class LensPlotCreator:
             Калькулятор с рассчитанными данными
         """
         self.calc = calculator
+        self.plot_fields = plot_fields or ["lin_teta"]
+
+        self.data_map = {
+            "lin_teta":  self.calc.DN_NORM_lin_dB_teta,
+            "lin_phi":   self.calc.DN_NORM_lin_dB_phi,
+            "circle_op": self.calc.DN_NORM_circle_dB_op,
+            "circle_kp": self.calc.DN_NORM_circle_dB_kp,
+        }
         
+        self.colors = {
+            "lin_teta":  "#1f77b4",
+            "lin_phi":   "#ff7f0e",
+            "circle_op": "#2ca02c",
+            "circle_kp": "#d62728",
+        }
+
+        self.labels = {
+            "lin_teta":  r"E$_\theta$ lin., дБ",
+            "lin_phi":   r"E$_\varphi$ lin., дБ",
+            "circle_op": r"E$_{op}$ circ., дБ",
+            "circle_kp": r"E$_{kp}$ circ., дБ"
+        }
+
         self.theta_original = calculator.teta
         self.E1_original = calculator.DN_NORM_lin_dB_teta
         self.E2 = None
@@ -88,52 +110,61 @@ class LensPlotCreator:
     def plot_single_polar(self) -> plt.Figure:
         """Полярный график для одного калькулятора (Eθ и Eφ)."""
         theta = self.theta_original
-        E1 = self.E1_original
-        
+
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
         ax.set_ylim(-40, 0)
-        
-        ax.plot(theta, np.real(E1), 
-                color='#1f77b4', linestyle='--', linewidth=1.5, 
-                alpha=0.9, label=r'E$_\theta$($\theta$), дБ')
-        
-        if (self.E2 is not None):
-            ax.plot(theta, np.real(self.E2), 
-                    color='#ff7f0e', linestyle='-', linewidth=2.5, 
-                    alpha=0.9, label=r'E$_\varphi$($\theta$), дБ')
-        
+
+        # Перебор выбранных пользователем полей
+        for key in self.plot_fields:
+            E = np.real(self.data_map[key])
+            ax.plot(theta, E,
+                    color=self.colors[key],
+                    linewidth=2,
+                    alpha=0.9,
+                    label=self.labels[key])
+
         ax.legend(loc='best', fontsize=14, frameon=True, framealpha=0.95)
-        ax.set_theta_zero_location('E')  # 0° сверху
-        ax.set_theta_direction(1)       # По часовой стрелке
-        
+        ax.set_theta_zero_location('E')
+        ax.set_theta_direction(1)
+
         ax.text(0, ax.get_rmax() + 7, r'$\theta$$\degree$', fontsize=14, ha='right', va='center')
         plt.tight_layout()
-        
+
         return fig
     
     def plot_comparison_polar(self) -> plt.Figure:
         """Полярный график сравнения двух калькуляторов."""
         if not self.comparison_mode:
             raise ValueError("Режим сравнения не активирован. Используйте setup_comparison()")
-            
+
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
         ax.set_ylim(-40, 0)
-        
-        ax.plot(self.theta, np.real(self.E1), 
-                color='#1f77b4', linestyle='--', linewidth=1.5, 
-                alpha=0.9, label=r'E$_\theta$($\theta$), дБ')
-        
-        ax.plot(self.theta, self.E2_shifted, 
-                color='#ff7f0e', linestyle='-', linewidth=2.5, 
-                alpha=0.9, label=r'Reference data, дБ')
-        
+
+        # Основная линия
+        for key in self.plot_fields:
+            E1 = np.real(self.data_map[key][:len(self.theta)])
+            ax.plot(self.theta, E1,
+                    color=self.colors[key],
+                    linestyle='--',
+                    linewidth=1.5,
+                    alpha=0.9,
+                    label=self.labels[key] + " (calc)")
+
+        # Референсные данные
+        ax.plot(self.theta, self.E2_shifted,
+                color="#000000",
+                linestyle='-',
+                linewidth=2.2,
+                alpha=0.9,
+                label="Reference")
+
         ax.legend(loc='best', fontsize=14, frameon=True, framealpha=0.95)
-        ax.set_theta_zero_location('E')  # 0° сверху
-        ax.set_theta_direction(1)       # По часовой стрелке
-        
+        ax.set_theta_zero_location('E')
+        ax.set_theta_direction(1)
+
         ax.text(0, ax.get_rmax() + 7, r'$\theta$$\degree$', fontsize=14, ha='right', va='center')
         plt.tight_layout()
-        
+
         return fig
     
     def plot_single(self) -> List[plt.Figure]:

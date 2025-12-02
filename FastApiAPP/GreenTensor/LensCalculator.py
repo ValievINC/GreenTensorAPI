@@ -5,7 +5,7 @@ import math
 import numpy as np
 
 class LensCalculator:
-    def __init__(self, lens: Lens):
+    def __init__(self, lens: Lens, scattering_mode: str = "horn"):
         """
         Инициализация калькулятора LensCalculator
         
@@ -15,6 +15,7 @@ class LensCalculator:
             Объект линзы с параметрами
         """
         self.lens = lens
+        self.scattering_mode = scattering_mode.lower()
         self._initialize_arrays()
         
     def _initialize_arrays(self):
@@ -221,15 +222,19 @@ class LensCalculator:
     # нужно сделать выбор между гюгенса и рупором
     def calculate_scattering_coefficients(self):
         """Расчет коэффициентов рассеяния"""
+        use_huygens = (self.scattering_mode.lower() == "huygens")
+
         for i in range(self.lens.toch):
             n = i + 1
-            # Элемент Гюгенса дифракция
-            # self.Mn[i] = (self.Z[i][self.lens.n-1] * self.mJ[i] - self.mJpr[i]) / (self.Z[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
-            # self.Nn[i] = (self.Y[i][self.lens.n-1] * self.mJ[i] - self.mJpr[i]) / (self.Y[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
-            
-            # Рупор на поверхности сферы
-            self.Mn[i] = (self.Z[i][self.lens.n-1] - 1j) / (self.Z[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])             
-            self.Nn[i] = (self.Y[i][self.lens.n-1] - 1j) / (self.Y[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
+            if use_huygens:
+                # Элемент Гюгенса дифракция
+                self.Mn[i] = (self.Z[i][self.lens.n-1] * self.mJ[i] - self.mJpr[i]) / (self.Z[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
+                self.Nn[i] = (self.Y[i][self.lens.n-1] * self.mJ[i] - self.mJpr[i]) / (self.Y[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
+            else:
+                # Рупор на поверхности сферы
+                self.Mn[i] = (self.Z[i][self.lens.n-1] - 1j) / (self.Z[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])             
+                self.Nn[i] = (self.Y[i][self.lens.n-1] - 1j) / (self.Y[i][self.lens.n-1] * self.mH[i] - self.mHpr[i])
+
             self.Mn[i] = self.Mn[i].real - self.Mn[i].imag * 1j
             self.Nn[i] = self.Nn[i].real - self.Nn[i].imag * 1j
         
