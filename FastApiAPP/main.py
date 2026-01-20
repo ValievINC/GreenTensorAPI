@@ -198,7 +198,7 @@ async def compare_csv(
         reference_array = df.iloc[1:, -1].to_numpy().astype(float)
 
         lens = create_lens_from_config(request_model.lens_config)
-        calculator = LensCalculator(lens, scattering_mode=request.scattering_mode)
+        calculator = LensCalculator(lens, scattering_mode=request_model.scattering_mode)
         calculator.run_calculation()
 
         plotter = LensPlotCreator(
